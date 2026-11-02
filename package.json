@@ -1,0 +1,13 @@
+{
+  "name": "atlas",
+  "version": "1.0.0",
+  "description": "Red team automatizado para o SaaS Vendly — ataca uma cópia de teste e mede onde as defesas seguram.",
+  "type": "module",
+  "main": "atlas.mjs",
+  "scripts": {
+    "start": "node atlas.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

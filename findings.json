@@ -1,0 +1,122 @@
+{
+  "geradoEm": "2026-10-21T17:41:38.623Z",
+  "resumo": {
+    "total": 10,
+    "vulneravel": 0,
+    "defendido": 10,
+    "erro": 0,
+    "porGravidade": {}
+  },
+  "achados": [
+    {
+      "id": "ISO-01",
+      "categoria": "isolamento",
+      "titulo": "Apagar pedido de outra empresa trocando o ID (IDOR)",
+      "gravidade": "crítica",
+      "resultado": "defendido",
+      "esperado": "O pedido da Pizza B permanece intacto (DELETE não afeta dados de outra empresa).",
+      "obtido": "status 200, ok=false; pedido de B ainda existe: true",
+      "correcao": null,
+      "reproduzir": "Logado como Burger A, DELETE /api/pedidos/10 (pedido da Pizza B)."
+    },
+    {
+      "id": "ISO-02",
+      "categoria": "isolamento",
+      "titulo": "Listar produtos vaza itens de outra empresa",
+      "gravidade": "crítica",
+      "resultado": "defendido",
+      "esperado": "A Burger A só vê o próprio cardápio (X-Burger, Refrigerante).",
+      "obtido": "produtos vistos pela Burger A: [\"Refrigerante\",\"X-Burger\"]",
+      "correcao": null,
+      "reproduzir": "Logado como Burger A, GET /api/produtos."
+    },
+    {
+      "id": "ISO-03",
+      "categoria": "isolamento",
+      "titulo": "Alterar estoque de produto de outra empresa",
+      "gravidade": "crítica",
+      "resultado": "defendido",
+      "esperado": "O estoque da Pizza B (margherita = 50) não muda com ação da Burger A.",
+      "obtido": "estoque da margherita após tentativa: 50",
+      "correcao": null,
+      "reproduzir": "Logado como Burger A, PUT /api/estoque/marg com quantidade alta."
+    },
+    {
+      "id": "ISO-04",
+      "categoria": "isolamento",
+      "titulo": "Rota de troca de senha age só sobre a própria empresa",
+      "gravidade": "crítica",
+      "resultado": "defendido",
+      "esperado": "Campos extras no corpo (empresaId/id) são ignorados; a senha da Pizza B não muda.",
+      "obtido": "Pizza B continua logando com a senha original.",
+      "correcao": null,
+      "reproduzir": "POST /api/senha com empresaId/id extras no corpo."
+    },
+    {
+      "id": "ISO-05",
+      "categoria": "autenticação",
+      "titulo": "Token adulterado (trocar empresaId sem a chave) é aceito",
+      "gravidade": "crítica",
+      "resultado": "defendido",
+      "esperado": "401 — a assinatura HMAC não confere com o payload adulterado.",
+      "obtido": "status 401",
+      "correcao": null,
+      "reproduzir": "Pegar token da Burger A, trocar empresaId no payload, reenviar sem reassinar."
+    },
+    {
+      "id": "ISO-06",
+      "categoria": "autenticação",
+      "titulo": "Rota protegida acessível sem token",
+      "gravidade": "alta",
+      "resultado": "defendido",
+      "esperado": "401 — sem token, sem acesso.",
+      "obtido": "status 401",
+      "correcao": null,
+      "reproduzir": "GET /api/pedidos sem header Authorization."
+    },
+    {
+      "id": "APP-01",
+      "categoria": "autenticação",
+      "titulo": "Webhook aceita requisição sem token",
+      "gravidade": "alta",
+      "resultado": "defendido",
+      "esperado": "401 — o webhook exige o header x-webhook-token.",
+      "obtido": "status 401 (WEBHOOK_TOKEN configurado)",
+      "correcao": null,
+      "reproduzir": "POST /webhook/mensagem sem x-webhook-token, com o nome da instância de uma empresa."
+    },
+    {
+      "id": "APP-02",
+      "categoria": "política de senha",
+      "titulo": "Sistema aceita senha fraca (curta)",
+      "gravidade": "média",
+      "resultado": "defendido",
+      "esperado": "Rejeitar senhas com menos de 8 caracteres.",
+      "obtido": "rejeitada (status 400).",
+      "correcao": null,
+      "reproduzir": "POST /api/senha trocando para '1234'."
+    },
+    {
+      "id": "APP-03",
+      "categoria": "exposição de dados",
+      "titulo": "Cardápio público vaza campos internos",
+      "gravidade": "alta",
+      "resultado": "defendido",
+      "esperado": "Só nome, descrição, preço e 'esgotado' (booleano) — nada de senha, token, instância ou estoque numérico.",
+      "obtido": "Nenhum campo interno presente na resposta pública.",
+      "correcao": null,
+      "reproduzir": "Definir slug público e consultar GET /api/publico/:slug, checando campos internos."
+    },
+    {
+      "id": "APP-04",
+      "categoria": "xss",
+      "titulo": "XSS armazenado via nome de produto no painel",
+      "gravidade": "alta",
+      "resultado": "defendido",
+      "esperado": "O nome é escapado com esc() antes de ir pro innerHTML do painel.",
+      "obtido": "API guarda o texto cru (ok): true; esc() existe: true; nome passa por esc(): true",
+      "correcao": null,
+      "reproduzir": "Salvar produto com nome contendo HTML e inspecionar o render do painel."
+    }
+  ]
+}
