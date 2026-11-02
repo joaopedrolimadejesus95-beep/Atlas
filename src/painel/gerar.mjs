@@ -1,4 +1,5 @@
 import { ordenar } from "../nucleo.mjs";
+import { carregarHistorico, resumirEvolucao } from "../relatorios.mjs";
 import { CSS } from "./css.mjs";
 import { PAINEL_JS } from "./js.mjs";
 
@@ -9,13 +10,22 @@ const CLASSE_GRAV = { "crítica": "critica", "alta": "alta", "média": "media", 
 const RES_CLASSE = { VULNERAVEL: "vuln", erro: "erro", pulado: "pulado", defendido: "defendido" };
 const RES_LABEL = { VULNERAVEL: "A corrigir", erro: "Erro", pulado: "Pulado", defendido: "Defendido" };
 
-export function gerarPainel(dados) {
+export function gerarPainel(dados, historico = null) {
   const r = dados.resumo;
   const dataFmt = new Date(dados.geradoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
-  const sevTxt = Object.entries(r.porGravidade).map(([g, n]) => n + " " + g).join(" · ") || "—";
-  const lede = r.vulneravel === 0
+  const sevTxt = Object.entries(r.porGravidade || {}).map(([g, n]) => n + " " + g).join(" · ") || "—";
+  const listaHistorico = Array.isArray(historico)
+    ? historico
+    : Array.isArray(dados.historico)
+      ? dados.historico
+      : dados.dirHistorico
+        ? carregarHistorico(dados.dirHistorico)
+        : [];
+  const evolucao = resumirEvolucao(r, listaHistorico, { geradoEm: dados.geradoEm });
+  const evolucaoHtml = evolucao ? ' <span class="evolucao">Evolução: <strong>' + escHtml(evolucao.texto) + "</strong></span>" : "";
+  const lede = (r.vulneravel === 0
     ? "<strong>Todos os ataques foram bloqueados.</strong>"
-    : "<strong>" + r.defendido + " de " + r.total + " ataques foram bloqueados pelas defesas do Vendly.</strong> Restam " + r.vulneravel + (r.vulneravel === 1 ? " ponto" : " pontos") + " a corrigir.";
+    : "<strong>" + r.defendido + " de " + r.total + " ataques foram bloqueados pelas defesas do Vendly.</strong> Restam " + r.vulneravel + (r.vulneravel === 1 ? " ponto" : " pontos") + " a corrigir.") + evolucaoHtml;
 
   const tiles = [
     { n: r.total, l: "Testes", c: "" },

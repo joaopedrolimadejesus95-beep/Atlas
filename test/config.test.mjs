@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validarBanco, validarAlvo, carregarConfig, ErroConfig } from "../src/config.mjs";
+import { validarBanco, validarAlvo, carregarConfig, parsearCli, ErroConfig } from "../src/config.mjs";
 
 test("validarBanco aceita banco com 'test' no nome", () => {
   assert.equal(validarBanco("postgres://u@127.0.0.1:5432/vendly_test"), "vendly_test");
@@ -58,4 +58,30 @@ test("carregarConfig aplica padrões sãos", () => {
   assert.equal(c.alvoUrl, "http://127.0.0.1:3000");
   assert.equal(c.nomeBanco, "vendly_test");
   assert.equal(c.tentativasForcaBruta, 25);
+});
+
+test("parsearCli e carregarConfig suportam flags --so-json, --sem-xss, --sem-ia e --ajuda mantendo retrocompatibilidade", () => {
+  const flags = parsearCli(["--so-json", "--sem-xss", "--sem-ia"]);
+  assert.equal(flags.soJson, true);
+  assert.equal(flags.semXss, true);
+  assert.equal(flags.semIa, true);
+  assert.equal(flags.ajuda, false);
+
+  const cfg = carregarConfig(
+    {
+      DATABASE_URL: "postgres://u@127.0.0.1:5432/vendly_test",
+      ADMIN_HTML: "/caminho/admin.html",
+      ATLAS_EVOLUTION: "on",
+    },
+    ["--so-json", "--sem-xss", "--sem-ia"]
+  );
+  assert.equal(cfg.soJson, true);
+  assert.equal(cfg.semXss, true);
+  assert.equal(cfg.adminHtml, null, "--sem-xss deve desativar adminHtml mesmo se definido no env");
+  assert.equal(cfg.semIa, true);
+  assert.equal(cfg.evolutionLigada, false, "--sem-ia deve desligar a bateria de IA mesmo com ATLAS_EVOLUTION=on");
+
+  const cfgAjuda = carregarConfig({}, ["--ajuda"]);
+  assert.equal(cfgAjuda.ajuda, true);
+  assert.ok(cfgAjuda.textoAjuda.includes("--so-json"));
 });

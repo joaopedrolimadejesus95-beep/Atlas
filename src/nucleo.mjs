@@ -22,6 +22,20 @@ export function redigir(texto) {
     .replace(/("?(?:senha|password|token|hash|salt|authorization)"?\s*[:=]\s*)("[^"]*"|[^\s,}]+)/gi, '$1"[redigido]"');
 }
 
+export function redigirAchado(a) {
+  if (!a || typeof a !== "object") return a;
+  return {
+    ...a,
+    id: a.id != null ? redigir(a.id) : a.id,
+    categoria: a.categoria != null ? redigir(a.categoria) : a.categoria,
+    titulo: a.titulo != null ? redigir(a.titulo) : a.titulo,
+    esperado: a.esperado != null ? redigir(a.esperado) : "",
+    obtido: a.obtido != null ? redigir(a.obtido) : "",
+    correcao: a.correcao != null ? redigir(a.correcao) : null,
+    reproduzir: a.reproduzir != null ? redigir(a.reproduzir) : null,
+  };
+}
+
 // Percorre um JSON e chama fn(chave, valor) em cada propriedade, em qualquer nível.
 export function percorrer(valor, fn) {
   if (Array.isArray(valor)) return valor.forEach((v) => percorrer(v, fn));
@@ -45,10 +59,10 @@ export class Rodada {
       titulo: meta.titulo,
       gravidade: meta.gravidade,
       resultado,
-      esperado: extra.esperado ?? "",
+      esperado: redigir(extra.esperado ?? ""),
       obtido: redigir(extra.obtido),
-      correcao: resultado === "VULNERAVEL" ? meta.correcao ?? null : null,
-      reproduzir: meta.reproduzir ?? null,
+      correcao: resultado === "VULNERAVEL" ? (meta.correcao != null ? redigir(meta.correcao) : null) : null,
+      reproduzir: meta.reproduzir != null ? redigir(meta.reproduzir) : null,
     });
   }
 
@@ -105,6 +119,10 @@ export class Rodada {
     const r = this.resumo();
     return r.vulneravel > 0 ? 2 : r.erro > 0 ? 3 : 0;
   }
+
+  paraHistorico(meta = {}) {
+    return criarRegistroHistorico(this.resumo(), this.achados, meta);
+  }
 }
 
 export function ordenar(lista) {
@@ -112,4 +130,45 @@ export function ordenar(lista) {
   return [...lista].sort((a, b) =>
     rank(a) !== rank(b) ? rank(a) - rank(b) : ORDEM_GRAV.indexOf(a.gravidade) - ORDEM_GRAV.indexOf(b.gravidade)
   );
+}
+
+// Monta um registro sanitizado para persistência em historico/, garantindo que
+// redigir() seja aplicado em todos os achados e metadados ANTES de salvar.
+export function criarRegistroHistorico(r, achados = [], meta = {}) {
+  const timestamp = meta?.geradoEm || meta?.timestamp || new Date().toISOString();
+  const achadosSanitizados = ordenar(achados).map(redigirAchado);
+  const total = r?.total ?? r?.totalSondas ?? achadosSanitizados.length;
+  const defendido = r?.defendido ?? r?.defendidas ?? achadosSanitizados.filter((a) => a.resultado === "defendido").length;
+  const vulneravel = r?.vulneravel ?? r?.vulneraveis ?? achadosSanitizados.filter((a) => a.resultado === "VULNERAVEL").length;
+  const pulado = r?.pulado ?? r?.pulados ?? achadosSanitizados.filter((a) => a.resultado === "pulado").length;
+  const erro = r?.erro ?? r?.erros ?? achadosSanitizados.filter((a) => a.resultado === "erro").length;
+  const porGravidade = { ...(r?.porGravidade || r?.falhasPorGravidade || {}) };
+
+  return {
+    timestamp,
+    geradoEm: timestamp,
+    alvo: redigir(meta?.descricaoAlvo ?? meta?.alvo ?? ""),
+    pontuacaoGeral: `${defendido}/${total}`,
+    pontuacao: total > 0 ? Math.round((defendido / total) * 100) : 100,
+    totalSondas: total,
+    total,
+    defendidas: defendido,
+    defendido,
+    vulneraveis: vulneravel,
+    vulneravel,
+    pulados: pulado,
+    erros: erro,
+    falhasPorGravidade: porGravidade,
+    porGravidade,
+    resumo: { total, defendido, vulneravel, pulado, erro, porGravidade },
+    resumoAchados: achadosSanitizados.map((a) => ({
+      id: a.id,
+      categoria: a.categoria,
+      titulo: a.titulo,
+      gravidade: a.gravidade,
+      resultado: a.resultado,
+      obtido: a.obtido,
+    })),
+    achados: achadosSanitizados,
+  };
 }

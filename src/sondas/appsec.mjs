@@ -91,6 +91,7 @@ export async function bateriaAppSec(rodada, alvo, ctx) {
       limpar: () => banco.removerProduto("atlas-xss"),
     },
     async () => {
+      if (alvo.semXss) return { pulado: true, motivo: "Checagem de XSS desativada via --sem-xss." };
       const payload = "<img src=x onerror=alert(1)>";
       await http("POST", "/api/produtos", { token: tokenA, corpo: { id: "atlas-xss", nome: payload, preco: 1, descricao: "x", categoria: "comida" } });
       const r = await http("GET", "/api/produtos", { token: tokenA });

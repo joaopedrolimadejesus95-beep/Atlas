@@ -3,8 +3,61 @@
 // O ATLAS apaga tabelas e dispara ataques. Estas travas existem pra que ele
 // nunca rode, por engano, contra o banco ou o servidor de produção.
 // =============================================================================
+import { parseArgs } from "node:util";
 
 export class ErroConfig extends Error {}
+
+export function gerarTextoAjuda() {
+  return [
+    "ATLAS — Red team automatizado para o SaaS Vendly",
+    "",
+    "Uso:",
+    "  node atlas.mjs [opções]",
+    "",
+    "Opções de CLI:",
+    "  --so-json       Gera apenas findings.json (pula RELATORIO.md e painel.html)",
+    "  --sem-xss       Desativa a análise estática e checagem de XSS (APP-04)",
+    "  --sem-ia        Desativa a bateria de segurança de IA (IA-01 a IA-04)",
+    "  --alvo <url>    Sobrescreve ALVO_URL",
+    "  --saida <dir>   Sobrescreve ATLAS_SAIDA",
+    "  -h, --ajuda     Exibe esta mensagem de ajuda e encerra",
+    "",
+    "Variáveis de ambiente:",
+    "  DATABASE_URL             URL Postgres do banco de TESTE (obrigatório)",
+    "  ALVO_URL                 URL do servidor de teste (padrão: http://127.0.0.1:3000)",
+    "  ADMIN_HTML               Caminho do admin.html para checagem de XSS",
+    "  WEBHOOK_TOKEN            Token configurado no webhook para teste de ponta a ponta",
+    "  ATLAS_EVOLUTION=on       Liga a bateria de segurança de IA",
+    "  ATLAS_SAIDA              Pasta de saída dos relatórios (padrão: .)",
+  ].join("\n");
+}
+
+export function parsearCli(argv = process.argv.slice(2)) {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      "so-json": { type: "boolean", default: false },
+      "sem-xss": { type: "boolean", default: false },
+      "sem-ia": { type: "boolean", default: false },
+      ajuda: { type: "boolean", short: "h", default: false },
+      help: { type: "boolean", default: false },
+      alvo: { type: "string" },
+      saida: { type: "string" },
+    },
+    strict: false,
+  });
+
+  return {
+    soJson: Boolean(values["so-json"]),
+    semXss: Boolean(values["sem-xss"]),
+    semIa: Boolean(values["sem-ia"]),
+    ajuda: Boolean(values.ajuda || values.help),
+    alvoUrl: typeof values.alvo === "string" ? values.alvo : undefined,
+    saida: typeof values.saida === "string" ? values.saida : undefined,
+  };
+}
+
+export const parsearArgs = parsearCli;
 
 const HOSTS_LOCAIS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 const NOME_BANCO_DE_TESTE = /(^|[_-])(test|teste|atlas)([_-]|$)/i;
@@ -62,20 +115,31 @@ function inteiro(valor, padrao, nome) {
   return n;
 }
 
-export function carregarConfig(env = process.env) {
+export function carregarConfig(env = process.env, argv = []) {
+  const cli = Array.isArray(argv) ? parsearCli(argv) : (argv || {});
+  if (cli.ajuda) {
+    return { ajuda: true, textoAjuda: gerarTextoAjuda() };
+  }
   if (!env.DATABASE_URL) throw new ErroConfig("Defina DATABASE_URL apontando pro banco de TESTE do Vendly.");
+  const semXss = Boolean(cli.semXss || env.ATLAS_SEM_XSS === "1" || env.ATLAS_SEM_XSS === "true");
+  const semIa = Boolean(cli.semIa || env.ATLAS_SEM_IA === "1" || env.ATLAS_SEM_IA === "true");
+  const soJson = Boolean(cli.soJson || env.ATLAS_SO_JSON === "1" || env.ATLAS_SO_JSON === "true");
   return {
-    alvoUrl: validarAlvo(env.ALVO_URL || "http://127.0.0.1:3000", env),
+    ajuda: false,
+    soJson,
+    semXss,
+    semIa,
+    alvoUrl: validarAlvo(cli.alvoUrl || env.ALVO_URL || "http://127.0.0.1:3000", env),
     databaseUrl: env.DATABASE_URL,
     nomeBanco: validarBanco(env.DATABASE_URL, env),
-    adminHtml: env.ADMIN_HTML || null,
+    adminHtml: semXss ? null : (env.ADMIN_HTML || null),
     webhookToken: env.WEBHOOK_TOKEN || null,
-    saida: env.ATLAS_SAIDA || ".",
+    saida: cli.saida || env.ATLAS_SAIDA || ".",
     tentativasForcaBruta: inteiro(env.ATLAS_TENTATIVAS_BRUTE, 25, "ATLAS_TENTATIVAS_BRUTE"),
     timeoutMs: inteiro(env.ATLAS_TIMEOUT_MS, 10_000, "ATLAS_TIMEOUT_MS"),
     // Bateria de segurança de IA: desligada por padrão (precisa você apontar a
     // EVOLUTION_API_URL do Vendly de teste pra essa porta — ver README).
-    evolutionLigada: env.ATLAS_EVOLUTION === "on",
+    evolutionLigada: semIa ? false : env.ATLAS_EVOLUTION === "on",
     evolutionPorta: inteiro(env.ATLAS_EVOLUTION_PORTA, undefined, "ATLAS_EVOLUTION_PORTA"),
     evolutionTimeoutMs: inteiro(env.ATLAS_EVOLUTION_TIMEOUT_MS, 15_000, "ATLAS_EVOLUTION_TIMEOUT_MS"),
   };
