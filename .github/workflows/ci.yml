@@ -1,0 +1,35 @@
+name: ATLAS Security CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-audit:
+    name: Testes Automatizados & Auditoria (Node LTS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Instalar dependências
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Executar suíte de testes do ATLAS
+        run: npm test
+
+      - name: Auditoria de segurança de dependências
+        run: npm audit --audit-level=high

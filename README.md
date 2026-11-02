@@ -1,194 +1,113 @@
-# ATLAS
+# ATLAS — Automated Red Team Framework for Multi-Tenant SaaS & AI Agents
 
-Red team automatizado para o [Vendly](https://meuvendly.com.br) — um SaaS multi-empresa de atendimento para restaurantes (pedidos via WhatsApp com IA e gestão de mesas).
+[![ATLAS Security CI](https://github.com/joaopedrolimadejesus95-beep/Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/joaopedrolimadejesus95-beep/Atlas/actions/workflows/ci.yml)
+![Node.js LTS](https://img.shields.io/badge/Node.js-LTS-339933?logo=node.js&logoColor=white)
+![Testes Automatizados](https://img.shields.io/badge/Testes-58%20passando-10B981)
+![Dependências Externas UI](https://img.shields.io/badge/Painel_UI-100%25_Offline--First-2563EB)
 
-O ATLAS ataca uma **cópia de teste** do Vendly de vários jeitos e mede onde as defesas seguram e onde há o que corrigir. Cada ataque vira um achado com gravidade, passo de reprodução e correção sugerida.
+> **Framework de Red Team automatizado para SaaS Multi-Tenant e Agentes de IA — 3 baterias de ataque (17 sondas), validação direto no banco de dados (*ground truth / verdade absoluta*), histórico de evolução temporal e 58 testes automatizados sem falsos positivos.**
 
-> Construído para testar o meu próprio SaaS. O ATLAS se RECUSA a rodar contra um banco ou alvo que não pareçam de teste — ver [Travas de segurança](#travas-de-segurança-embutidas).
-
----
-
-## Novidade: bateria de segurança de IA
-
-O Vendly responde no WhatsApp com um bot de IA — e até agora o ATLAS só
-testava a API, nunca o bot em si. A bateria `IA-01` a `IA-04` manda
-**mensagens de texto**, como um cliente mal-intencionado mandaria, e mede se
-o bot obedece instrução escondida no texto, se revela as próprias
-instruções, se mistura dado de outra empresa na conversa, e se uma ação
-sensível (cancelar pedido) pode ser disparada só por linguagem — sempre
-conferindo o resultado real no banco, nunca confiando no que o bot *disse*
-que fez.
-
-Essa bateria é **opcional** (desligada por padrão) porque precisa de uma
-peça a mais: como o bot responde de forma assíncrona (ele manda a resposta
-pra Evolution API, que é o gateway de WhatsApp), o ATLAS sobe um **Evolution
-falsa** local só pra capturar o que o bot tentaria mandar. Pra ligar:
-
-```bash
-ATLAS_EVOLUTION=on ALVO_URL=... DATABASE_URL=... node atlas.mjs
-```
-
-Isso sobe a Evolution falsa na porta `4001` (fixa, pra você configurar só
-uma vez) e imprime a URL no início da rodada. **Antes de rodar**, aponte a
-variável que o Vendly de teste usa pra falar com a Evolution (geralmente
-`EVOLUTION_API_URL`) pra essa URL — só no ambiente de teste, nunca em
-produção.
-
-> **Suposição a confirmar**: assumi o formato oficial de envio de texto da
-> Evolution API (`POST /message/sendText/:instance`). Se o seu Vendly chama
-> de outro jeito, o ajuste é de uma linha em `src/evolution-falsa.mjs`
-> (função `extrairEnvio`) — o resto da bateria não muda.
-
-Se `ATLAS_EVOLUTION` não estiver ligado, essa bateria aparece como "pulada"
-no relatório (com a instrução de como ligar), em vez de travar o ATLAS.
+O **ATLAS** executa ataques controlados contra uma cópia de teste isolada de um SaaS (como o [Vendly](https://meuvendly.com.br) ou qualquer outro alvo conectado via adaptador) e comprova matematicamente onde as defesas seguram e onde existem falhas reais de isolamento, AppSec ou segurança de LLMs.
 
 ---
 
-## O que mudou nesta versão (v2)
+## 📸 Preview do Console (`painel.html`)
 
-A v1 era um arquivo único (`atlas.mjs`, ~480 linhas). Esta versão reorganiza o mesmo projeto em módulos, corrige bugs reais e adiciona testes automatizados — sem mudar o visual do painel. Resumo rápido (detalhes técnicos em [`MUDANCAS.md`](MUDANCAS.md)):
+<!-- ======================================================================= -->
+<!-- ESPAÇO PARA SCREENSHOT / GIF DO PAINEL                                  -->
+<!-- Substitua o caminho abaixo pelo GIF ou print do novo painel.html:       -->
+<!-- ![ATLAS Security Console](./docs/atlas-console-preview.gif)             -->
+<!-- ======================================================================= -->
 
-- **Travas de segurança novas**: o ATLAS agora recusa rodar se `DATABASE_URL` não parecer um banco de teste, ou se `ALVO_URL` não for local/rede privada — evita o erro de rodar sem querer contra produção.
-- **Veredito pela verdade do banco, não pela resposta da API**: as sondas de isolamento agora consultam o Postgres direto depois do ataque (em vez de confiar só no `status`/`ok` que a API devolveu).
-- **4 sondas novas**: criar produto em outra empresa via mass assignment (`ISO-07`), força bruta sem limite de tentativas (`APP-05`), injeção SQL no login (`APP-06`) — e o webhook agora também é testado com um token *errado*, não só sem token.
-- **Redação de segredos**: qualquer coisa que pareça hash, token ou senha é mascarada antes de ir pro relatório — importante porque o repositório é público.
-- **Limpeza automática**: toda sonda que altera dado de teste (senha, produto plantado) desfaz a alteração sozinha, mesmo se a sonda quebrar no meio.
-- **50 testes automatizados** (`npm test`) — cobrem as travas de segurança, cada sonda (inclusive provando que ela PEGA o bug quando ele existe de propósito), a análise de XSS, a geração do relatório/painel e a bateria de segurança de IA.
-- **Código de saída** (0 limpo / 2 há vulnerabilidade / 3 só erro) — dá pra plugar no CI.
-
----
-
-## Resultado da última rodada (contra o Vendly real)
-
-| | |
-|---|---|
-| Testes executados | **10** |
-| Defesas que seguraram | **10** |
-| Pontos a corrigir | **0** |
-
-Veja o relatório completo em [`RELATORIO.md`](RELATORIO.md) e o painel visual em [`painel.html`](painel.html). (Esses três arquivos de saída são gerados pelo `node atlas.mjs`; os que estão aqui no repositório são de uma rodada anterior — rode de novo pra atualizar.)
+> 🖼️ **[Espaço reservado para GIF / Screenshot do `painel.html`]**  
+> *Para visualizar o painel interativo agora mesmo (com Bento Grid, Gráfico SVG de evolução, Abas por Bateria, Tema Claro/Escuro, Modo Apresentação e Exportar PDF), abra o arquivo [`painel.html`](./painel.html) em qualquer navegador.*
 
 ---
 
-## O que o ATLAS testa
+## ⚡ Leitura de 30 Segundos (Destaques de Engenharia)
 
-**Isolamento entre empresas (multi-tenant)** — a falha mais grave possível num SaaS: logado como a empresa A, conseguir ver ou mexer nos dados da empresa B.
-
-- `ISO-01` Apagar pedido de outra empresa trocando o ID (IDOR)
-- `ISO-02` Listar produtos vazando o cardápio de outra empresa
-- `ISO-03` Alterar o estoque de um produto que é de outra empresa
-- `ISO-04` Trocar a senha de outra empresa injetando campos no corpo da requisição
-- `ISO-05` Forjar um token de sessão trocando o `empresaId` (com e sem assinatura)
-- `ISO-06` Acessar rota protegida sem token
-- `ISO-07` **(novo)** Criar produto dentro de outra empresa via mass assignment
-
-**Segurança da aplicação**
-
-- `APP-01` Webhook aceitando requisição sem autenticação (e com token errado)
-- `APP-02` Política de senha aceitando senha fraca (curta ou comum)
-- `APP-03` Cardápio público vazando campos internos (checado contra o banco de verdade)
-- `APP-04` XSS armazenado via nome de produto no painel (análise estática aponta a linha)
-- `APP-05` **(novo)** Login sem limite de tentativas (força bruta)
-- `APP-06` **(novo)** Login com payload de injeção SQL
-
-**Segurança de IA** *(opcional — ver seção acima)*
-
-- `IA-01` Injeção de prompt — o bot obedece uma instrução escondida na mensagem do cliente
-- `IA-02` O bot pode ser convencido a revelar seu prompt de sistema
-- `IA-03` A conversa vaza dado (endereço, pedido) de outro cliente ou empresa
-- `IA-04` Uma ação sensível (cancelar pedido) é executada só por linguagem, sem checar o dono
-
-As categorias seguem o espírito do [OWASP Top 10 para LLM](https://owasp.org/www-project-top-10-for-large-language-model-applications/) e do [OWASP API Security Top 10](https://owasp.org/API-Security/).
+- **Veredito pela Verdade do Banco (*Ground Truth*):** Em vez de confiar no status HTTP ou no texto que a API/IA respondeu, o ATLAS consulta o banco de dados diretamente após cada ataque para provar se um registro de outro tenant foi apagado, lido ou adulterado.
+- **3 Baterias de Ataque Alinhadas ao OWASP (API Top 10 & LLM Top 10):**
+  - **Isolamento Multi-Tenant (`ISO-01` a `ISO-07`):** IDOR em pedidos/estoque, vazamento de catálogo entre empresas, mass assignment em troca de senha e criação de recursos, e falsificação de tokens HMAC (4 variações).
+  - **AppSec (`APP-01` a `APP-06`):** Autenticação de webhooks, política de senhas fracas/comuns, vazamento de hashes/segredos em rotas públicas, XSS armazenado (análise estática de sinks `innerHTML` sem escape), força bruta e SQL Injection.
+  - **Segurança de IA / LLMs (`IA-01` a `IA-04`):** Prompt injection validado por *canary token*, vazamento de system prompt, exfiltração cross-tenant via conversa e execução não autorizada de ações sensíveis (cancelamento de pedidos por linguagem natural) usando um servidor **Evolution API falso** local.
+- **Travas de Segurança Anti-Produção (`src/config.mjs`):** Recusa-se a rodar caso o banco não contenha `test`/`teste`/`atlas` no nome ou caso o alvo não seja `localhost`/rede privada, exigindo confirmação explícita e nominal para overrides.
+- **Redação Automática de Segredos (`src/nucleo.mjs`):** Mascaramento automático de Bearer tokens, JWTs, hashes hexadecimais e senhas antes de persistir relatórios ou histórico em disco.
+- **Persistência de Histórico & Evolução Temporal (`historico/`):** Cada rodada salva seu snapshot sanitizado em `historico/YYYY-MM-DD_HH-mm-ss.json` e plota a evolução (ex.: `de 8/10 para 10/10`) no Markdown e no gráfico SVG do painel.
 
 ---
 
-## Como funciona
+## 🚀 Como Rodar em 1 Comando
 
-```
-atlas.mjs                 runner: carrega config, semeia, roda as 2 baterias, grava a saída
-src/
-  config.mjs               lê o ambiente e aplica as travas de segurança
-  senha.mjs                hash de senha (scrypt) e geração de senha aleatória por rodada
-  http.mjs                 cliente fetch com timeout, sem seguir redirect
-  cenario.mjs               dados do cenário de teste (2 empresas fictícias + 1 "vítima")
-  nucleo.mjs                Rodada (registra achados, roda limpeza, calcula resumo), redação de segredos
-  analise-estatica.mjs      varre admin.html em busca de innerHTML sem esc()
-  adaptador-vendly.mjs      a ÚNICA peça que conhece o Vendly (rotas, login, formato do token)
-  banco-pg.mjs              semeadura + consultas de "verdade absoluta" no Postgres de teste
-  relatorios.mjs             gera RELATORIO.md e findings.json
-  evolution-falsa.mjs        Evolution API falsa (só p/ a bateria de IA — ver seção acima)
-  painel/
-    css.mjs, js.mjs          visual do painel (idêntico ao da v1)
-    gerar.mjs                monta o painel.html
-  sondas/
-    isolamento.mjs            bateria 1 (ISO-01 a ISO-07)
-    appsec.mjs                 bateria 2 (APP-01 a APP-06)
-    seguranca-ia.mjs            bateria 3 (IA-01 a IA-04, opcional)
-test/
-  *.test.mjs                  testes unitários (config, núcleo, análise de XSS, relatórios)
-  sondas.integracao.test.mjs   sobe um Vendly falso e prova que cada sonda pega o bug certo
-  sondas-ia.integracao.test.mjs igual, mas com bot de IA falso + Evolution falsa
-  helpers/                     banco falso + Vendly falso (+ bot de IA) usados só nos testes
-```
-
-Para apontar o ATLAS a outro alvo no futuro: reescreva `src/adaptador-vendly.mjs` (e `src/banco-pg.mjs` se o banco não for Postgres). As sondas (`src/sondas/*`) não mudam.
-
----
-
-## Travas de segurança embutidas
-
-O ATLAS apaga tabelas e dispara ataques de verdade. Duas travas impedem que ele rode sem querer contra algo que não seja uma cópia de teste:
-
-- **Banco**: `DATABASE_URL` precisa apontar pra um banco cujo nome contenha `test`, `teste` ou `atlas`. Pra usar outro nome, repita o nome exato em `ATLAS_CONFIRMO_BANCO=<nome>`.
-- **Alvo**: `ALVO_URL` precisa ser `localhost` ou IP de rede privada (10.x, 172.16–31.x, 192.168.x). Pra atacar um host remoto (ex.: uma cópia de teste hospedada), repita o hostname exato em `ATLAS_ALVO_REMOTO_OK=<host>`.
-
-Se qualquer uma falhar, o ATLAS para antes de tocar em qualquer dado e explica como confirmar.
-
----
-
-## Como rodar
-
-Pré-requisitos: uma cópia de **teste** do Vendly rodando e acesso ao banco de teste.
-
-```bash
-npm install
-
-ALVO_URL=http://127.0.0.1:3000 \
-DATABASE_URL=postgres://usuario@host:5432/vendly_test \
-ADMIN_HTML=../vendly-bot/public/admin.html \
-WEBHOOK_TOKEN=token-que-voce-configurou-no-servidor \
-node atlas.mjs
-```
-
-| Variável | O que é |
-|----------|---------|
-| `ALVO_URL` | Endereço da cópia de teste do Vendly (local ou rede privada) |
-| `DATABASE_URL` | Banco de teste (precisa ter test/teste/atlas no nome) |
-| `ADMIN_HTML` | *(opcional)* caminho do `admin.html` do Vendly — liga a checagem de XSS |
-| `WEBHOOK_TOKEN` | *(opcional)* o mesmo token configurado no servidor — usado pra testar a variação "token errado" |
-| `ATLAS_SAIDA` | *(opcional)* pasta onde gravar os 3 arquivos de saída (padrão: pasta atual) |
-| `ATLAS_TENTATIVAS_BRUTE` | *(opcional)* tentativas de login na sonda de força bruta (padrão: 25) |
-| `ATLAS_EVOLUTION` | *(opcional)* `on` liga a bateria de segurança de IA — ver seção acima |
-| `ATLAS_EVOLUTION_PORTA` | *(opcional)* porta da Evolution falsa (padrão: 4001) |
-
-A saída vai pro terminal e pra três arquivos: `RELATORIO.md`, `findings.json` e `painel.html`. Código de saída: `0` tudo defendido, `2` há vulnerabilidade, `3` só erro de execução.
-
-### Testes
+### 1. Executar toda a suíte de testes (sem precisar de Postgres ou servidor externo)
+Os **58 testes** sobem servidores HTTP e bots de IA falsos em memória (incluindo modos propositalmente vulneráveis) para provar que cada sonda detecta exatamente o bug para o qual foi desenhada:
 
 ```bash
 npm test
 ```
 
-50 testes, sem precisar de Postgres nem do Vendly real — sobem um Vendly falso em memória (incluindo versões propositalmente vulneráveis, e um bot de IA falso pra bateria `IA-*`) pra provar que cada sonda detecta o bug certo.
+### 2. Executar o segundo adaptador de demonstração em memória
+Prova que o núcleo do ATLAS é agnóstico ao Vendly:
+
+```bash
+node examples/adaptador-bot-exemplo.mjs
+```
+
+### 3. Executar contra uma cópia de teste real do alvo
+
+```bash
+ALVO_URL=http://127.0.0.1:3000 \
+DATABASE_URL=postgres://postgres@127.0.0.1:5432/vendly_test \
+ADMIN_HTML=../vendly/public/admin.html \
+WEBHOOK_TOKEN=token-de-teste \
+ATLAS_EVOLUTION=on \
+node atlas.mjs
+```
+
+#### Flags de CLI (`util.parseArgs`)
+```bash
+node atlas.mjs --ajuda      # Exibe ajuda completa
+node atlas.mjs --so-json    # Gera apenas findings.json (ideal para pipelines de CI)
+node atlas.mjs --sem-xss    # Pula a análise estática de XSS (APP-04)
+node atlas.mjs --sem-ia     # Desativa a bateria de segurança de IA (IA-01 a IA-04)
+```
+
+**Códigos de saída para CI/CD:** `0` (100% defendido) · `2` (vulnerabilidade detectada) · `3` (erro de execução).
 
 ---
 
-## Painel visual
+## 🧩 Arquitetura e Como Criar um Novo Adaptador
 
-O `painel.html` é uma página independente que mostra o placar e a lista de achados (cada um abre com o esperado, o obtido e a correção). Abre em qualquer navegador, sem servidor.
+```text
+atlas.mjs                         Runner CLI (parseArgs, semeadura, baterias e saída)
+src/
+  nucleo.mjs                      Motor de execução (Rodada, limpeza garantida, redação de segredos)
+  config.mjs                      Travas de segurança anti-produção e flags de CLI
+  relatorios.mjs                  Gerador de RELATORIO.md, findings.json e persistência em historico/
+  painel/                         Dashboard SaaS offline-first (gerar.mjs, css.mjs, js.mjs)
+  sondas/                         Baterias desacopladas: isolamento.mjs, appsec.mjs, seguranca-ia.mjs
+  adaptador-vendly.mjs            Adaptador HTTP + Auth + Webhook para o Vendly
+  banco-pg.mjs                    Consultas de ground truth e semeadura transacional no Postgres
+  evolution-falsa.mjs             Gateway WhatsApp simulado para capturar respostas assíncronas da IA
+examples/
+  adaptador-bot-exemplo.mjs       Segundo adaptador completo (ShopBot E-Commerce em memória)
+test/
+  *.test.mjs                      58 testes unitários e de integração ponta a ponta
+```
+
+Para plugar o ATLAS em **outro SaaS ou bot**, as sondas (`src/sondas/*`) e o núcleo (`src/nucleo.mjs`) **não mudam**. Basta criar um adaptador seguindo o exemplo de [`examples/adaptador-bot-exemplo.mjs`](./examples/adaptador-bot-exemplo.mjs) com:
+1. `semear()` e métodos de verificação no banco (`pedidoExiste`, `estoqueDe`, `produtoExiste`, `hashSenhaDe`, `segredosDe`);
+2. `login(conta)`, `loginBruto(login, senha)`, `forjarTokens(token, tenantAlvo)` e `rotasProtegidas`;
+3. `http(metodo, caminho, opcoes)` apontando para as rotas do seu sistema.
 
 ---
 
-## Por que esse projeto existe
+## ⚖️ Aviso Legal e Uso Ético (Disclaimer)
 
-Com a IA mudando a forma de programar, saber **atacar o próprio sistema e defendê-lo** vale tanto quanto saber construí-lo. O ATLAS é a minha forma de levar o Vendly a sério como produto: pensar como atacante, achar as falhas antes que alguém de fora ache, corrigir e comprovar.
+O **ATLAS** é uma ferramenta de **engenharia de segurança defensiva e verificação contínua (Purple/Red Team autorizado)**, desenvolvida para ser executada **exclusivamente pelo proprietário do software ou mediante autorização expressa e documentada**, sempre contra **ambientes de teste isolados** (nunca contra ambientes de produção ou sistemas de terceiros).
+
+A execução de testes de intrusão ou disparos automatizados contra sistemas sem autorização prévia é ilegal e viola legislações nacionais e internacionais, incluindo:
+- **Brasil:** **Lei nº 12.737/2012 (Lei Carolina Dieckmann)** — Art. 154-A do Código Penal Brasileiro (Invasão de dispositivo informático) e Marco Civil da Internet (Lei nº 12.965/2014).
+- **Estados Unidos / Internacional:** **Computer Fraud and Abuse Act (CFAA — 18 U.S.C. § 1030)** e legislações equivalentes de crimes cibernéticos.
+
+O autor não se responsabiliza pelo uso indevido, não autorizado ou malicioso deste código. Utilize com responsabilidade ética para construir sistemas mais seguros.

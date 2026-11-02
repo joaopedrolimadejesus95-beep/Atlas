@@ -12,6 +12,7 @@ import {
   resumirEvolucao,
 } from "../src/relatorios.mjs";
 import { gerarPainel } from "../src/painel/gerar.mjs";
+import { PAINEL_JS } from "../src/painel/js.mjs";
 import { Rodada, GRAV } from "../src/nucleo.mjs";
 
 async function rodadaDeExemplo() {
@@ -176,4 +177,44 @@ test("gerarMarkdown e gerarPainel exibem a evolução temporal (ex: 'de 8/10 par
   } finally {
     rmSync(baseTmp, { recursive: true, force: true });
   }
+});
+
+test("gerarPainel inclui Bento Grid, Abas de Baterias, Gráfico SVG, Modo Apresentação, Exportar PDF, zero links externos e JS sem erros de sintaxe", async () => {
+  // Verifica que o JS embutido não tem erro de sintaxe
+  assert.doesNotThrow(() => new Function(PAINEL_JS));
+
+  const r = await rodadaDeExemplo();
+  const resumo = r.resumo();
+  const historico = [
+    { timestamp: "2026-11-01T10:00:00.000Z", defendidas: 2, totalSondas: 3, pontuacaoGeral: "2/3" },
+    { timestamp: "2026-11-02T10:00:00.000Z", defendidas: 1, totalSondas: 3, pontuacaoGeral: "1/3" },
+  ];
+
+  const html = gerarPainel({ geradoEm: "2026-11-02T10:00:00.000Z", resumo, achados: r.achados, historico });
+
+  // 100% autocontido (sem Google Fonts nem CDN externo)
+  assert.ok(!html.includes("fonts.googleapis.com") && !html.includes("fonts.gstatic.com"));
+
+  // Bento Grid + Resumo por Gravidade + Gráfico SVG
+  assert.ok(html.includes("Score Geral de Defesa"));
+  assert.ok(html.includes("Resumo por Gravidade"));
+  assert.ok(html.includes("Evolução entre Rodadas"));
+  assert.ok(html.includes("<svg class=\"chart-svg\""));
+
+  // Abas das baterias
+  assert.ok(html.includes("Isolamento Multi-Tenant (ISO)"));
+  assert.ok(html.includes("AppSec (APP)"));
+  assert.ok(html.includes("Segurança de IA (IA)"));
+
+  // Botões de topo e @media print
+  assert.ok(html.includes("Modo Apresentação"));
+  assert.ok(html.includes("Exportar PDF"));
+  assert.ok(html.includes("@media print"));
+  assert.ok(html.includes("Comportamento Esperado"));
+  assert.ok(html.includes("Resultado Obtido"));
+
+  // Accordion inteligente: VULNERAVEL inicia aberto (.open), defendido/pulado iniciam fechados
+  assert.ok(html.includes('class="card r-vuln open"'));
+  assert.ok(html.includes('class="card r-defendido"'));
+  assert.ok(html.includes('class="card r-pulado"'));
 });
